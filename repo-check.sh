@@ -4,7 +4,15 @@ retval=0
 current_year=$(date +%Y)
 current_month=$(date +%m)
 
-BASE_DIR=$(git rev-parse --show-superproject-working-tree || pwd)
+if [ -n "$(git rev-parse --show-superproject-working-tree)" ]; then
+  BASE_DIR=$(git rev-parse --show-superproject-working-tree)
+elif [ -n "$(git rev-parse --show-toplevel)" ]; then
+  BASE_DIR=$(git rev-parse --show-toplevel)
+else
+  BASE_DIR=$(pwd)
+fi
+TOOLS=${0%"$(basename $0)"}
+
 FAIL="[$(tput setab 1; tput bold)FAIL$(tput sgr0)]"
 OK="[$(tput setab 2; tput bold)OK$(tput sgr0)]"
 
@@ -21,7 +29,7 @@ check_beancount () {
   for beancount_file in $beancount_files; do
     local fileerr=0
     local_file=${beancount_file#$BASE_DIR/}
-    OUTPUT=$(python check_file.py ${local_file}) || { fileerr=1; errcount=$(($errcount+1)); }
+    OUTPUT=$(${TOOLS}check_file.py ${local_file}) || { fileerr=1; errcount=$(($errcount+1)); }
     [[ $fileerr -eq 0 ]] && log_result "${local_file}" "$OK" || { log_result "${local_file}" "$FAIL"; 
       echo -e "${OUTPUT}" | sed 's/^/  /'; }
   done
