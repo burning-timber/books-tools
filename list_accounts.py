@@ -51,11 +51,24 @@ def merge(a, b, path=None):
                     a[key] = b[key] # Let the most recent status through
                 elif str(key) == "name":
                     pass # Leave original name value
+                elif path and path[0] == "group_acl":
+                    pass # Don't override more specific rules
                 else:
-                    raise Exception('Conflict at %s' % '.'.join(path + [str(key)]))
+                    raise Exception(f'Conflict at {str(key)}')
         else:
             a[key] = b[key]
     return a
+
+cascade_blacklist = [ 'children', 'name', 'account' ]
+def cascade(input, cascade_attrs=None, path=None):
+  if path is None: path = []
+  for key in input:
+    if isinstance(input[key], dict):
+      if cascade_attrs:
+        merge(input[key], cascade_attrs)
+      if input[key].get('children'):
+        cascade_attrs = {k: v for k, v in input[key].items() if k not in cascade_blacklist }
+        cascade(input[key]['children'], cascade_attrs, path + [str(key)])
 
 for account in [ definition for definition in definitions if isinstance(definition, Open) or isinstance(definition, Close)]:
   metadata = {}
@@ -90,4 +103,6 @@ while rule_line:
   rule_line = rule_file.readline()
 
 merge(accounts, json.loads(rules)['accounts'])
+for key in accounts:
+  cascade({key: accounts[key]})
 print(json.dumps(accounts))
